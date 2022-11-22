@@ -1,0 +1,77 @@
+name: Build FModStudio 3p-packages
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+env:
+  AUTOBUILD_VARIABLES_FILE: ${{github.workspace}}/build-variables/variables
+  EXTRA_ARGS: -DFMODSTUDIO=Off -DUSE_KDU=Off
+jobs:
+  build_matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-11,ubuntu-20.04,windows-2022]
+        addrsize: [64,32]
+        exclude:
+          - os: ubuntu-20.04
+            addrsize: 32
+          - os: macos-11
+            addrsize: 32
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      id: py311
+      with:
+        python-version: '3.11'
+    - name: Check python version
+      run: echo '${{ steps.py311.outputs.python-version }}'
+    - name: Get the code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+    - name: install wheel cos autobuild is legacy
+      run: pip3 install wheel
+    - name: install autobuild
+      run: pip3 install git+https://github.com/Nicky-D/autobuild@main_nd
+    - name: install llbase
+      run: pip3 install llbase
+    - name: Checkout build var
+      uses: actions/checkout@v3
+      with:
+        repository: FirestormViewer/fs-build-variables
+        path: build-variables
+    - name: Setup rclone and download the folder
+      uses: beqjanus/setup-rclone@main
+      with:
+        rclone_config: ${{ secrets.RCLONE_CONFIG }}
+
+    - name: rclone the fmod packages on Windows
+      if: runner.os == 'Windows'
+      run: 'rclone copy fs_packages: --include "fmodstudioapi*win*.exe" .'
+    - name: rclone the fmod packages on MacOS
+      if: runner.os == 'MacOS'
+      run: 'rclone copy fs_packages: --include "fmodstudioapi*mac*.dmg" .'
+    - name: rclone the fmod packages on Linux
+      if: runner.os == 'Linux'
+      run: 'rclone copy fs_packages: --include "fmodstudioapi*lin*.gz" .'
+    
+    - name: build the MacOS 3p-archive
+      if: runner.os == 'macOS'
+      run: |
+        autobuild build --config-file=autobuild.xml
+        autobuild package --config-file=autobuild.xml
+    - name: package the Windows 3p-archive
+      if: runner.os == 'Windows'
+      run: |
+        autobuild build --all -A${{ matrix.addrsize }} --config-file=autobuild.xml
+        autobuild package -A${{ matrix.addrsize }} --config-file=autobuild.xml
+    - name: package the Linux 3p-archive
+      if: runner.os == 'Linux'
+      run: |
+        autobuild build --all -A${{ matrix.addrsize }} --config-file=autobuild.xml
+        autobuild package -A${{ matrix.addrsize }} --config-file=autobuild.xml
+    - name: push the 3p-archive to the bundles drive
+      run: 'rclone copy . --include "*.bz2" fs_bundles:'
