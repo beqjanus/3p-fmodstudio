@@ -94,7 +94,7 @@ jobs:
           package_file=$(find_most_recent_bundle $package)
 
           # Extract version number from the filename using awk
-          FMOD_VERSION=$(echo "$filename" | awk 'match($0, /[0-9]+/) { print substr($0, RSTART, RLENGTH) }')
+          FMOD_VERSION=$(echo "$package_file" | awk 'match($0, /[0-9]+/) { print substr($0, RSTART, RLENGTH) }')
 
           # Format FMOD_VERSION_PRETTY using printf
           FMOD_VERSION_PRETTY=$(printf "%d.%02d.%02d" ${FMOD_VERSION:0:1} ${FMOD_VERSION:1:2} ${FMOD_VERSION:3:2})
