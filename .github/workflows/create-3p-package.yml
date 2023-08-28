@@ -21,57 +21,92 @@ jobs:
             addrsize: 32
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v4
-      id: py311
-      with:
-        python-version: '3.11'
-    - name: Check python version
-      run: echo '${{ steps.py311.outputs.python-version }}'
-    - name: Get the code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 1
-    - name: install wheel cos autobuild is legacy
-      run: pip3 install wheel
-    - name: install autobuild
-      run: pip3 install git+https://github.com/Nicky-D/autobuild@main_nd
-    - name: install llbase
-      run: pip3 install llbase
-    - name: Checkout build var
-      uses: actions/checkout@v3
-      with:
-        repository: FirestormViewer/fs-build-variables
-        path: build-variables
-    - name: Setup rclone and download the folder
-      uses: beqjanus/setup-rclone@main
-      with:
-        rclone_config: ${{ secrets.RCLONE_CONFIG }}
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        if: runner.os != 'Windows'
+        id: py311
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - run: pip3 install -r requirements.txt
 
-    - name: rclone the fmod packages on Windows
-      if: runner.os == 'Windows'
-      run: 'rclone copy fs_packages: --include "fmodstudioapi*win*.exe" .'
-    - name: rclone the fmod packages on MacOS
-      if: runner.os == 'MacOS'
-      run: 'rclone copy fs_packages: --include "fmodstudioapi*mac*.dmg" .'
-    - name: rclone the fmod packages on Linux
-      if: runner.os == 'Linux'
-      run: 'rclone copy fs_packages: --include "fmodstudioapi*lin*.gz" .'
-    
-    - name: build the MacOS 3p-archive
-      if: runner.os == 'macOS'
+      - name: Check python version
+        run: python -V
+
+      - name: Install Bash 4 and GNU sed on Mac
+        if: runner.os == 'macOS'
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew update
+
+          brew install bash
+          brew install gnu-sed
+
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
+
+      - name: Checkout build var
+        uses: actions/checkout@v3
+        with:
+          repository: FirestormViewer/fs-build-variables
+          path: build-variables
+
+      - name: Setup rclone and download the folder
+        uses: beqjanus/setup-rclone@main
+        with:
+          rclone_config: ${{ secrets.RCLONE_CONFIG }}
+
+      - name: Define platform variable(s)
       run: |
-        autobuild build --config-file=autobuild.xml
-        autobuild package --config-file=autobuild.xml
-    - name: package the Windows 3p-archive
-      if: runner.os == 'Windows'
-      run: |
-        autobuild build --all -A${{ matrix.addrsize }} --config-file=autobuild.xml
-        autobuild package -A${{ matrix.addrsize }} --config-file=autobuild.xml
-    - name: package the Linux 3p-archive
-      if: runner.os == 'Linux'
-      run: |
-        autobuild build --all -A${{ matrix.addrsize }} --config-file=autobuild.xml
-        autobuild package -A${{ matrix.addrsize }} --config-file=autobuild.xml
-    - name: push the 3p-archive to the bundles drive
-      run: 'rclone copy . --include "*.bz2" fs_bundles:'
+        declare -A os_map
+        os_map=( ["Windows"]="windows" ["Linux"]="linux" ["macOS"]="darwin" )
+        platform="${os_map[${{ runner.os}}]}"
+        echo "fallback_platform=${platform}" >> $GITHUB_ENV
+        if [ ${{ matrix.addrsize }} -ne 32 ];
+        then
+          platform+=${{ matrix.addrsize }}
+        fi
+        echo "platform=${platform}" >> $GITHUB_ENV
+      shell: bash          
+
+      - name: rclone the fmod packages on Windows
+        if: runner.os == 'Windows'
+        run: 'rclone copy fs_packages: --include "fmodstudioapi*win*.exe" .'
+      - name: rclone the fmod packages on MacOS
+        if: runner.os == 'MacOS'
+        run: 'rclone copy fs_packages: --include "fmodstudioapi*mac*.dmg" .'
+      - name: rclone the fmod packages on Linux
+        if: runner.os == 'Linux'
+        run: 'rclone copy fs_packages: --include "fmodstudioapi*lin*.gz" .'
+
+      - name: setup the env vars
+        run: |
+          function find_most_recent_bundle() {
+            local pattern="$1.*"
+            local most_recent_file=$(ls -t "${{ github.workspace }}" | egrep "$pattern" | head -1)
+            if [ -z "$most_recent_file" ]; then
+              echo ""
+            else
+              echo "$most_recent_file"
+            fi
+          }
+          package=fmodstudioapi
+          package_file=$(find_most_recent_bundle $package)
+
+          # Extract version number from the filename using awk
+          FMOD_VERSION=$(echo "$filename" | awk 'match($0, /[0-9]+/) { print substr($0, RSTART, RLENGTH) }')
+
+          # Format FMOD_VERSION_PRETTY using printf
+          FMOD_VERSION_PRETTY=$(printf "%d.%02d.%02d" ${FMOD_VERSION:0:1} ${FMOD_VERSION:1:2} ${FMOD_VERSION:3:2})
+
+          # Output variables
+          echo "FMOD_VERSION=$FMOD_VERSION" >> $GITHUB_ENV
+          echo "FMOD_VERSION_PRETTY=$FMOD_VERSION_PRETTY" >> $GITHUB_ENV
+      
+      - name: build the 3p-archive
+        run: |
+          autobuild configure -A${{ matrix.addrsize }} --config-file=autobuild.xml
+          autobuild build --all -A${{ matrix.addrsize }} --config-file=autobuild.xml
+          autobuild package -A${{ matrix.addrsize }} --config-file=autobuild.xml
+      - name: push the 3p-archive to the bundles drive
+        run: 'rclone copy . --include "*.bz2" fs_bundles:'

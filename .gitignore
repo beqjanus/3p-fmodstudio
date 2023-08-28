@@ -11,3 +11,4 @@ fmodstudioapi*
 *.h.bak
 *.h.orig
 *.diff
+my_autobuild.xml
