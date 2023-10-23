@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bash -x
 
 FMOD_DOWNLOAD_BASE=${FMOD_DOWNLOAD_BASE:-"http://erebus/dev/pkg/"}
 FMOD_ROOT_NAME=${FMOD_ROOT_NAME:-"fmodstudioapi"}
@@ -68,7 +68,7 @@ case "$FMOD_ARCHIVE" in
         # to get to the dialog using remote desktop.  Either way, manual
         # preparation for this is required.
         #
-        chmod +x "$FMOD_ARCHIVE"
+        chmod +x $FMOD_ARCHIVE
         cmd.exe /c "$FMOD_ARCHIVE /S /D=$win_install_dir"
         if [ ! -d "$win_install_dir" ]; then
             echo "Please run $FMOD_ARCHIVE as administrator and install to  $win_install_dir"
@@ -76,10 +76,11 @@ case "$FMOD_ARCHIVE" in
         fi
     ;;
     *.tar.gz)
-        tar xvf "$FMOD_ARCHIVE"
+        tar zxvf $FMOD_ARCHIVE
+        ls -lR
     ;;
     *.dmg)
-        hdid "$FMOD_ARCHIVE"
+        hdid $FMOD_ARCHIVE
         mkdir -p "$(pwd)/$FMOD_SOURCE_DIR"
         cp -r /Volumes/FMOD\ Programmers\ API\ Mac/FMOD\ Programmers\ API/* "$FMOD_SOURCE_DIR"
         umount /Volumes/FMOD\ Programmers\ API\ Mac/
@@ -103,6 +104,7 @@ mkdir -p "$stage_release"
 echo "${FMOD_VERSION_PRETTY}" > "${stage}/VERSION.txt"
 COPYFLAGS=""
 pushd "$FMOD_SOURCE_DIR"
+    curr=$(pwd)
     case "$AUTOBUILD_PLATFORM" in
         "windows")
         COPYFLAGS="-dR --preserve=mode,timestamps"
