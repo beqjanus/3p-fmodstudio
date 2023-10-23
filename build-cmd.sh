@@ -33,7 +33,7 @@ set -x
 case "$AUTOBUILD_PLATFORM" in
     windows*)
     FMOD_PLATFORM="win-installer"
-    FMOD_FILEEXTENSION=".exe"
+    FMOD_FILEEXTENSION=".zip"
     ;;
     darwin*)
     FMOD_PLATFORM="mac-installer"
