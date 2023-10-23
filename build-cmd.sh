@@ -75,6 +75,11 @@ case "$FMOD_ARCHIVE" in
             exit 1
         fi
     ;;
+    *.zip)
+        # we have a pre-unpacked windows zip
+        unzip $FMOD_ARCHIVE
+        ls -lR
+    ;;
     *.tar.gz)
         tar zxvf $FMOD_ARCHIVE
         ls -lR
