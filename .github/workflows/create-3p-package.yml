@@ -72,7 +72,7 @@ jobs:
 
       - name: rclone the fmod packages on Windows
         if: runner.os == 'Windows'
-        run: 'rclone copy fs_packages: --include "fmodstudioapi*win*.exe" .'
+        run: 'rclone copy fs_packages: --include "fmodstudioapi*win*.zip" .'
       - name: rclone the fmod packages on MacOS
         if: runner.os == 'MacOS'
         run: 'rclone copy fs_packages: --include "fmodstudioapi*mac*.dmg" .'
