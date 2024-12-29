@@ -13,13 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-11,ubuntu-20.04,windows-2022]
-        addrsize: [64,32]
-        exclude:
-          - os: ubuntu-20.04
-            addrsize: 32
-          - os: macos-11
-            addrsize: 32
+        os: [macos-14,ubuntu-22.04,windows-2022]
+        addrsize: [64]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
